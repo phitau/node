@@ -181,9 +181,6 @@
   #                  which makes the test useless.
   'big-object-literal': [PASS, ['mode == debug', SKIP]],
 
-  # BUG(v8:5807): Flaky data race.
-  'wasm/embenchen/fannkuch': [PASS, ['tsan', SKIP]],
-
   # BUG(v8:5778): These fail with --future, which we are about to turn on.
   # Investigate.
   'regress/regress-105': [SKIP],
@@ -662,19 +659,10 @@
 ['variant == asm_wasm', {
   # Issue 6127: We won't fix these in the "old" validator. But we definitely
   # need to re-enable these for the "new" validator.
-  'compiler/regress-445859': [SKIP],
-  'compiler/regress-452427': [SKIP],
-  'regress/regress-458987': [SKIP],
-  'regress/regress-599719': [SKIP],
   'regress/regress-618608': [SKIP],
   'regress/regress-670808': [SKIP],
   'wasm/asm-wasm-exception-in-tonumber': [SKIP],
   'wasm/asm-wasm-stack': [SKIP],
-
-  # Issue 6127: Tiggers ASAN reports with "new" validator.
-  'asm/b5528-comma': [SKIP],
-  'asm/if-folding': [SKIP],
-  'asm/if-reduction': [SKIP],
 
   # Issue 6127: Breaks on no-snap bots.
   'es8/regress/regress-624300': [SKIP],
@@ -699,14 +687,5 @@
   'unicode-test': [SKIP],
   'whitespaces': [SKIP],
 }],  # variant == wasm_traps
-
-##############################################################################
-# This test allocates a 2G block of memory and if there are multiple
-# varients this leads kills by the OOM killer, crashes or messages
-# indicating the OS cannot allocate memory, exclude for Node.js runs
-# re-evalute when we move up to v8 5.1
-[ALWAYS, {
-'regress/regress-crbug-514081': [PASS, NO_VARIANTS],
-}],  # ALWAYS
 
 ]

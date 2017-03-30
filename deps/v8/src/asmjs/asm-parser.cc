@@ -26,12 +26,14 @@ namespace internal {
 namespace wasm {
 
 #ifdef DEBUG
-#define FAIL_AND_RETURN(ret, msg)                                          \
-  failed_ = true;                                                          \
-  failure_message_ = std::string(msg) +                                    \
-                     " token: " + scanner_.Name(scanner_.Token()) +        \
-                     " see: " + __FILE__ + ":" + std::to_string(__LINE__); \
-  failure_location_ = scanner_.GetPosition();                              \
+#define FAIL_AND_RETURN(ret, msg)                                        \
+  failed_ = true;                                                        \
+  failure_message_ = msg;                                                \
+  failure_location_ = scanner_.GetPosition();                            \
+  if (FLAG_trace_asm_parser) {                                           \
+    PrintF("[asm.js failure: %s, token: '%s', see: %s:%d]\n", msg,       \
+           scanner_.Name(scanner_.Token()).c_str(), __FILE__, __LINE__); \
+  }                                                                      \
   return ret;
 #else
 #define FAIL_AND_RETURN(ret, msg)             \
@@ -45,25 +47,13 @@ namespace wasm {
 #define FAILn(msg) FAIL_AND_RETURN(nullptr, msg)
 #define FAILf(msg) FAIL_AND_RETURN(false, msg)
 
-#ifdef DEBUG
-#define EXPECT_TOKEN_OR_RETURN(ret, token)                            \
-  do {                                                                \
-    if (scanner_.Token() != token) {                                  \
-      FAIL_AND_RETURN(ret, std::string("expected token ") +           \
-                               scanner_.Name(token) + " but found " + \
-                               scanner_.Name(scanner_.Token()));      \
-    }                                                                 \
-    scanner_.Next();                                                  \
-  } while (false);
-#else
 #define EXPECT_TOKEN_OR_RETURN(ret, token)      \
   do {                                          \
     if (scanner_.Token() != token) {            \
-      FAIL_AND_RETURN(ret, "unexpected token"); \
+      FAIL_AND_RETURN(ret, "Unexpected token"); \
     }                                           \
     scanner_.Next();                            \
-  } while (false);
-#endif
+  } while (false)
 
 #define EXPECT_TOKEN(token) EXPECT_TOKEN_OR_RETURN(, token)
 #define EXPECT_TOKENn(token) EXPECT_TOKEN_OR_RETURN(nullptr, token)
@@ -77,7 +67,7 @@ namespace wasm {
     }                                                                      \
     call;                                                                  \
     if (failed_) return ret;                                               \
-  } while (false);
+  } while (false)
 
 #define RECURSE(call) RECURSE_OR_RETURN(, call)
 #define RECURSEn(call) RECURSE_OR_RETURN(nullptr, call)
@@ -1506,8 +1496,11 @@ AsmType* AsmJsParser::AssignmentExpression() {
     ret = info->type;
     scanner_.Next();
     if (Check('=')) {
-      // NOTE: Before this point, this might have been VarKind::kUndefined,
-      // as it might be a label.
+      // NOTE: Before this point, this might have been VarKind::kUnused even in
+      // valid code, as it might be a label.
+      if (info->kind == VarKind::kUnused) {
+        FAILn("Undeclared assignment target");
+      }
       DCHECK(is_local ? info->kind == VarKind::kLocal
                       : info->kind == VarKind::kGlobal);
       AsmType* value;
@@ -1677,7 +1670,8 @@ AsmType* AsmJsParser::MultiplicativeExpression() {
         current_function_builder_->Emit(kExprI32Mul);
         return AsmType::Intish();
       }
-      AsmType* b = UnaryExpression();
+      AsmType* b;
+      RECURSEn(b = UnaryExpression());
       if (a->IsA(AsmType::DoubleQ()) && b->IsA(AsmType::DoubleQ())) {
         current_function_builder_->Emit(kExprF64Mul);
         a = AsmType::Double();
@@ -1688,7 +1682,8 @@ AsmType* AsmJsParser::MultiplicativeExpression() {
         FAILn("expected doubles or floats");
       }
     } else if (Check('/')) {
-      AsmType* b = MultiplicativeExpression();
+      AsmType* b;
+      RECURSEn(b = MultiplicativeExpression());
       if (a->IsA(AsmType::DoubleQ()) && b->IsA(AsmType::DoubleQ())) {
         current_function_builder_->Emit(kExprF64Div);
         a = AsmType::Double();
@@ -1705,7 +1700,8 @@ AsmType* AsmJsParser::MultiplicativeExpression() {
         FAILn("expected doubles or floats");
       }
     } else if (Check('%')) {
-      AsmType* b = MultiplicativeExpression();
+      AsmType* b;
+      RECURSEn(b = MultiplicativeExpression());
       if (a->IsA(AsmType::DoubleQ()) && b->IsA(AsmType::DoubleQ())) {
         current_function_builder_->Emit(kExprF64Mod);
         a = AsmType::Double();
@@ -1727,11 +1723,13 @@ AsmType* AsmJsParser::MultiplicativeExpression() {
 
 // 6.8.9 AdditiveExpression
 AsmType* AsmJsParser::AdditiveExpression() {
-  AsmType* a = MultiplicativeExpression();
+  AsmType* a;
+  RECURSEn(a = MultiplicativeExpression());
   int n = 0;
   for (;;) {
     if (Check('+')) {
-      AsmType* b = MultiplicativeExpression();
+      AsmType* b;
+      RECURSEn(b = MultiplicativeExpression());
       if (a->IsA(AsmType::Double()) && b->IsA(AsmType::Double())) {
         current_function_builder_->Emit(kExprF64Add);
         a = AsmType::Double();
@@ -1754,7 +1752,8 @@ AsmType* AsmJsParser::AdditiveExpression() {
         FAILn("illegal types for +");
       }
     } else if (Check('-')) {
-      AsmType* b = MultiplicativeExpression();
+      AsmType* b;
+      RECURSEn(b = MultiplicativeExpression());
       if (a->IsA(AsmType::Double()) && b->IsA(AsmType::Double())) {
         current_function_builder_->Emit(kExprF64Sub);
         a = AsmType::Double();

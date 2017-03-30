@@ -73,6 +73,7 @@ class V8_EXPORT_PRIVATE BytecodeArrayBuilder final
   }
 
   Register Parameter(int parameter_index) const;
+  Register Receiver() const;
 
   // Constant loads to accumulator.
   BytecodeArrayBuilder& LoadConstantPoolEntry(size_t entry);
@@ -356,7 +357,8 @@ class V8_EXPORT_PRIVATE BytecodeArrayBuilder final
   BytecodeArrayBuilder& ForInStep(Register index);
 
   // Generators.
-  BytecodeArrayBuilder& SuspendGenerator(Register generator);
+  BytecodeArrayBuilder& SuspendGenerator(Register generator,
+                                         SuspendFlags flags);
   BytecodeArrayBuilder& ResumeGenerator(Register generator);
 
   // Exception handling.
